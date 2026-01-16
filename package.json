@@ -1,7 +1,7 @@
 {
   "name": "claude-projects-sdk",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Unofficial Node.js SDK for Claude Code.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

@@ -30,6 +30,9 @@ export class Claude extends EventEmitter<ClaudeEvents> {
     private readline: Interface | null = null;
     private _sessionId: string | null = null;
     private pendingQuery: PendingQuery | null = null;
+    private readyEmitted = false;
+    private initReceived = false;
+    private initResultReceived = false;
 
     readonly cwd: string;
     readonly options: ClaudeOptions;
@@ -61,28 +64,45 @@ export class Claude extends EventEmitter<ClaudeEvents> {
     static async spawn(options: ClaudeOptions = {}): Promise<Claude> {
         const claude = new Claude(options);
         claude.start();
+        claude.sendInitQuery();
         await claude.ready();
         return claude;
     }
 
+    private sendInitQuery(): void {
+        if (!this.process?.stdin) {
+            throw new Error('Process stdin not available');
+        }
+
+        const message = JSON.stringify({
+            type: 'user',
+            message: {
+                role: 'user',
+                content: '',
+            },
+        });
+
+        console.log('[Claude] sending init query');
+        this.process.stdin.write(message + '\n');
+    }
+
+    private emitReady(source: string): void {
+        if (!this.readyEmitted) {
+            this.readyEmitted = true;
+            console.log('[Claude] emitting ready (source:', source + ')');
+            this.emit('ready');
+        } else {
+            console.log('[Claude] ready already emitted, skipping (source:', source + ')');
+        }
+    }
+
     private start(): void {
         const args = this.buildArgs();
-        let readyEmitted = false;
 
         console.log('[Claude] start() called');
         console.log('[Claude] cwd:', this.cwd);
         console.log('[Claude] args:', args.join(' '));
         console.log('[Claude] options:', JSON.stringify(this.options, null, 2));
-
-        const emitReady = (source: string) => {
-            if (!readyEmitted) {
-                readyEmitted = true;
-                console.log('[Claude] emitting ready (source:', source + ')');
-                this.emit('ready');
-            } else {
-                console.log('[Claude] ready already emitted, skipping (source:', source + ')');
-            }
-        };
 
         console.log('[Claude] spawning process...');
         this.process = spawn('claude', args, {
@@ -111,10 +131,6 @@ export class Claude extends EventEmitter<ClaudeEvents> {
             this.handleLine(line);
         });
 
-        this.process.on('spawn', () => {
-            console.log('[Claude] process spawn event received');
-            emitReady('spawn');
-        });
 
         this.process.stderr?.on('data', (data: Buffer) => {
             const message = data.toString().trim();
@@ -207,7 +223,22 @@ export class Claude extends EventEmitter<ClaudeEvents> {
 
         const message = result.data;
 
-        this._sessionId = message.session_id ?? null;
+        if (message.session_id) {
+            this._sessionId = message.session_id;
+        }
+
+        if (message.type === 'system' && message.subtype === 'init') {
+            console.log('[Claude] init message received, sessionId:', message.session_id);
+            this.initReceived = true;
+        }
+
+        if (message.type === 'result' && !this.readyEmitted) {
+            this.initResultReceived = true;
+        }
+
+        if (this.initReceived && this.initResultReceived && !this.readyEmitted) {
+            this.emitReady('init complete');
+        }
 
         this.emit('message', message);
 
