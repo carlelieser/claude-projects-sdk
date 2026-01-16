@@ -82,85 +82,60 @@ export class Claude extends EventEmitter<ClaudeEvents> {
             },
         });
 
-        console.log('[Claude] sending init query');
         this.process.stdin.write(message + '\n');
     }
 
-    private emitReady(source: string): void {
+    private emitReady(): void {
         if (!this.readyEmitted) {
             this.readyEmitted = true;
-            console.log('[Claude] emitting ready (source:', source + ')');
             this.emit('ready');
-        } else {
-            console.log('[Claude] ready already emitted, skipping (source:', source + ')');
         }
     }
 
     private start(): void {
         const args = this.buildArgs();
 
-        console.log('[Claude] start() called');
-        console.log('[Claude] cwd:', this.cwd);
-        console.log('[Claude] args:', args.join(' '));
-        console.log('[Claude] options:', JSON.stringify(this.options, null, 2));
-
-        console.log('[Claude] spawning process...');
         this.process = spawn('claude', args, {
             cwd: this.cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
         });
-        console.log('[Claude] process spawned, pid:', this.process.pid);
 
         if (!this.process.stdout || !this.process.stdin) {
-            console.error('[Claude] ERROR: Failed to create process streams');
             throw new Error('Failed to create process streams');
         }
-        console.log('[Claude] process streams created successfully');
 
         this.readline = createInterface({
             input: this.process.stdout,
             crlfDelay: Infinity,
         });
-        console.log('[Claude] readline interface created');
 
         this.readline.on('line', (line) => {
-            console.log(
-                '[Claude] readline received line:',
-                line.substring(0, 200) + (line.length > 200 ? '...' : '')
-            );
             this.handleLine(line);
         });
 
-
         this.process.stderr?.on('data', (data: Buffer) => {
             const message = data.toString().trim();
-            console.log('[Claude] stderr:', message);
             if (message) {
                 this.emit('error', new Error(message));
             }
         });
 
         this.process.on('error', (error) => {
-            console.error('[Claude] process error:', error.message);
             this.emit('error', error);
         });
 
         this.process.on('exit', (code, signal) => {
-            console.log('[Claude] process exit, code:', code, 'signal:', signal);
             this.process = null;
             this.readline?.close();
             this.readline = null;
 
             if (this.pendingQuery) {
-                console.log('[Claude] rejecting pending query due to exit');
                 this.pendingQuery.reject(new Error(`Process exited with code ${code}`));
                 this.pendingQuery = null;
             }
 
             this.emit('exit', code, signal);
         });
-
-        console.log('[Claude] start() setup complete, waiting for events...');
     }
 
     private buildArgs(): string[] {
@@ -228,7 +203,6 @@ export class Claude extends EventEmitter<ClaudeEvents> {
         }
 
         if (message.type === 'system' && message.subtype === 'init') {
-            console.log('[Claude] init message received, sessionId:', message.session_id);
             this.initReceived = true;
         }
 
@@ -237,7 +211,7 @@ export class Claude extends EventEmitter<ClaudeEvents> {
         }
 
         if (this.initReceived && this.initResultReceived && !this.readyEmitted) {
-            this.emitReady('init complete');
+            this.emitReady();
         }
 
         this.emit('message', message);
