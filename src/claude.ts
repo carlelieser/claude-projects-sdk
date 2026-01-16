@@ -1,6 +1,6 @@
-import { EventEmitter } from 'node:events';
-import { spawn, ChildProcess } from 'node:child_process';
-import { createInterface, Interface } from 'node:readline';
+import {EventEmitter} from 'node:events';
+import {spawn, ChildProcess} from 'node:child_process';
+import {createInterface, Interface} from 'node:readline';
 import {
     ClaudeStreamMessageSchema,
     ClaudeOptions,
@@ -23,7 +23,7 @@ export interface ClaudeEvents {
     exit: [number | null, NodeJS.Signals | null];
 }
 
-export type { ClaudeOptions, ClaudeStreamMessage, ClaudeResponse };
+export type {ClaudeOptions, ClaudeStreamMessage, ClaudeResponse};
 
 export class Claude extends EventEmitter<ClaudeEvents> {
     private process: ChildProcess | null = null;
@@ -58,9 +58,10 @@ export class Claude extends EventEmitter<ClaudeEvents> {
         });
     }
 
-    static spawn(options: ClaudeOptions = {}): Claude {
+    static async spawn(options: ClaudeOptions = {}): Promise<Claude> {
         const claude = new Claude(options);
         claude.start();
+        await claude.ready();
         return claude;
     }
 

@@ -13,16 +13,13 @@ npm install claude-projects-api
 ```ts
 import {Claude} from 'claude-projects-api';
 
-const claude = Claude.spawn({
+const claude = await Claude.spawn({
     cwd: '/path/to/project',
     model: 'sonnet',
 });
+const response = await claude.query('Hello!');
 
-claude.on('ready', async () => {
-    const response = await claude.query('Hello!');
-    console.log(response.text);
-    await claude.close();
-});
+await claude.close();
 ```
 
 ```ts
