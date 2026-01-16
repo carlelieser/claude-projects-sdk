@@ -55,7 +55,10 @@ export class Project {
         });
     }
 
-    static async get(name: string, claudeHome: string = getDefaultClaudeHome()): Promise<Project | null> {
+    static async get(
+        name: string,
+        claudeHome: string = getDefaultClaudeHome()
+    ): Promise<Project | null> {
         const projects = await Project.list(claudeHome);
         return projects.find((p) => p.name === name) ?? null;
     }

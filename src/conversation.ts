@@ -130,34 +130,38 @@ export class Conversation extends JsonlFile {
 
             case 'markdown':
                 return this.messages
-                    .filter((msg): msg is UserMessage | AssistantMessage =>
-                        msg.type === 'user' || msg.type === 'assistant'
+                    .filter(
+                        (msg): msg is UserMessage | AssistantMessage =>
+                            msg.type === 'user' || msg.type === 'assistant'
                     )
                     .map((msg) => {
                         const role = msg.type === 'user' ? '**User**' : '**Assistant**';
-                        const content = typeof msg.message.content === 'string'
-                            ? msg.message.content
-                            : msg.message.content
-                                .filter((block) => block.type === 'text')
-                                .map((block) => 'text' in block ? block.text : '')
-                                .join('\n');
+                        const content =
+                            typeof msg.message.content === 'string'
+                                ? msg.message.content
+                                : msg.message.content
+                                      .filter((block) => block.type === 'text')
+                                      .map((block) => ('text' in block ? block.text : ''))
+                                      .join('\n');
                         return `${role}\n\n${content}`;
                     })
                     .join('\n\n---\n\n');
 
             case 'text':
                 return this.messages
-                    .filter((msg): msg is UserMessage | AssistantMessage =>
-                        msg.type === 'user' || msg.type === 'assistant'
+                    .filter(
+                        (msg): msg is UserMessage | AssistantMessage =>
+                            msg.type === 'user' || msg.type === 'assistant'
                     )
                     .map((msg) => {
                         const role = msg.type === 'user' ? 'User:' : 'Assistant:';
-                        const content = typeof msg.message.content === 'string'
-                            ? msg.message.content
-                            : msg.message.content
-                                .filter((block) => block.type === 'text')
-                                .map((block) => 'text' in block ? block.text : '')
-                                .join('\n');
+                        const content =
+                            typeof msg.message.content === 'string'
+                                ? msg.message.content
+                                : msg.message.content
+                                      .filter((block) => block.type === 'text')
+                                      .map((block) => ('text' in block ? block.text : ''))
+                                      .join('\n');
                         return `${role}\n${content}`;
                     })
                     .join('\n\n');
