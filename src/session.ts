@@ -1,12 +1,12 @@
 import fg from 'fast-glob';
+import { rm } from 'node:fs/promises';
 import { Conversation } from './conversation';
-import { Project } from './project';
 import { PATTERNS } from './common/constants';
 
 export class Session {
     readonly claudeDir: string;
     private _conversation: Conversation;
-    private _project: Project | null = null;
+    private _projectPath: string | null = null;
     private _sidechains: Conversation[] | null = null;
     private _version: string | null = null;
     private _startedAt: string | null = null;
@@ -25,8 +25,8 @@ export class Session {
         return this._conversation;
     }
 
-    get project(): Project | null {
-        return this._project;
+    get projectPath(): string | null {
+        return this._projectPath;
     }
 
     get version(): string | null {
@@ -50,7 +50,7 @@ export class Session {
             return;
         }
 
-        this._project = new Project(message.cwd, this.claudeDir);
+        this._projectPath = message.cwd;
         this._version = message.version ?? null;
         this._startedAt = message.timestamp ?? null;
         this._gitBranch = message.gitBranch ?? null;
@@ -91,5 +91,31 @@ export class Session {
         const session = new Session(conversation, claudeDir);
         session.loadMetadata();
         return session;
+    }
+
+    static async getById(id: string, claudeDir: string): Promise<Session | null> {
+        const mainEntries = await fg(PATTERNS.UUID_JSONL, {
+            cwd: claudeDir,
+            absolute: true,
+        });
+
+        for (const entry of mainEntries) {
+            const conversation = await Conversation.create(entry);
+            if (conversation.sessionId === id) {
+                return Session.create(conversation, claudeDir);
+            }
+        }
+
+        return null;
+    }
+
+    async delete(): Promise<void> {
+        await this.loadSidechains();
+        const sidechains = this.getSidechains();
+
+        const deletePromises = sidechains.map((sidechain) => rm(sidechain.source, { force: true }));
+        deletePromises.push(rm(this._conversation.source, { force: true }));
+
+        await Promise.all(deletePromises);
     }
 }

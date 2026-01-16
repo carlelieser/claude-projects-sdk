@@ -67,6 +67,14 @@ export class Claude extends EventEmitter<ClaudeEvents> {
 
     private start(): void {
         const args = this.buildArgs();
+        let readyEmitted = false;
+
+        const emitReady = () => {
+            if (!readyEmitted) {
+                readyEmitted = true;
+                this.emit('ready');
+            }
+        };
 
         this.process = spawn('claude', args, {
             cwd: this.cwd,
@@ -87,8 +95,12 @@ export class Claude extends EventEmitter<ClaudeEvents> {
         });
 
         this.process.stdout.once('data', () => {
-            this.emit('ready');
+            emitReady();
         });
+
+        if (this.options.resume) {
+            emitReady();
+        }
 
         this.process.stderr?.on('data', (data: Buffer) => {
             const message = data.toString().trim();
@@ -143,12 +155,12 @@ export class Claude extends EventEmitter<ClaudeEvents> {
             args.push('--dangerously-skip-permissions');
         }
 
-        if (this.options.sessionId) {
+        if (this.options.resume && this.options.sessionId) {
+            args.push('--resume', this.options.sessionId);
+        } else if (this.options.resume) {
+            args.push('--continue');
+        } else if (this.options.sessionId) {
             args.push('--session-id', this.options.sessionId);
-        }
-
-        if (this.options.resume) {
-            args.push('--resume', this.options.sessionId ?? '');
         }
 
         if (this.options.args) {

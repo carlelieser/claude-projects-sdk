@@ -1,8 +1,8 @@
 {
-  "name": "claude-projects-api",
+  "name": "claude-projects-sdk",
   "type": "module",
   "version": "0.1.0",
-  "description": "Unofficial NodeJS API for Claude Code.",
+  "description": "Unofficial Node.js SDK for Claude Code.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -39,14 +39,18 @@
     "anthropic",
     "ai",
     "projects",
-    "api"
+    "sdk"
   ],
   "author": "Carlos <carloseliesersantos@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/carlelieser/claude-projects-sdk.git"
   },
+  "bugs": {
+    "url": "https://github.com/carlelieser/claude-projects-sdk/issues"
+  },
+  "homepage": "https://github.com/carlelieser/claude-projects-sdk#readme",
   "engines": {
     "node": ">=18.0.0"
   },

@@ -1,9 +1,9 @@
 import path, { basename } from 'node:path';
-import { readdir } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import fg from 'fast-glob';
 import { Session } from './session';
 import { Conversation } from './conversation';
-import { PATTERNS, PATHS } from './common/constants';
+import { PATTERNS, PATHS, getDefaultClaudeHome } from './common/constants';
 
 export class Project {
     readonly path: string;
@@ -45,5 +45,22 @@ export class Project {
             }
             throw new Error(`Failed to read projects directory: ${projectsDir}`, { cause: error });
         }
+    }
+
+    static async list(claudeHome: string = getDefaultClaudeHome()): Promise<Project[]> {
+        const projectDirs = await Project.getProjectDirs(claudeHome);
+        return projectDirs.map((dir) => {
+            const projectPath = dir.replace(/-/g, path.sep);
+            return new Project(projectPath, dir);
+        });
+    }
+
+    static async get(name: string, claudeHome: string = getDefaultClaudeHome()): Promise<Project | null> {
+        const projects = await Project.list(claudeHome);
+        return projects.find((p) => p.name === name) ?? null;
+    }
+
+    async delete(): Promise<void> {
+        await rm(this.claudeDir, { recursive: true, force: true });
     }
 }

@@ -1,17 +1,17 @@
-# Claude Projects API
+# Claude Projects SDK
 
-Unofficial Node.js API for Claude Code.
+Unofficial Node.js SDK for Claude Code.
 
 ## Install
 
 ```bash
-npm install claude-projects-api
+npm install claude-projects-sdk
 ```
 
 ## Usage
 
 ```ts
-import {Claude} from 'claude-projects-api';
+import {Claude} from 'claude-projects-sdk';
 
 const claude = await Claude.spawn({
     cwd: '/path/to/project',
@@ -23,7 +23,7 @@ await claude.close();
 ```
 
 ```ts
-import {Scanner} from 'claude-projects-api';
+import {Scanner} from 'claude-projects-sdk';
 
 const scanner = new Scanner();
 const projects = await scanner.getProjects();

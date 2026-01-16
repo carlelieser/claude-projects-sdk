@@ -1,7 +1,15 @@
 import { watch } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { stat, writeFile } from 'node:fs/promises';
 import { JsonlFile } from './common/jsonl';
-import { Message, MessageSchema } from './common/schemas';
+import { Message, MessageSchema, UserMessage, AssistantMessage } from './common/schemas';
+
+export type ExportFormat = 'json' | 'markdown' | 'text';
+
+export interface FilterCriteria {
+    type?: 'user' | 'assistant' | 'file-history-snapshot';
+    startDate?: Date;
+    endDate?: Date;
+}
 
 export class Conversation extends JsonlFile {
     private messages: Message[] = [];
@@ -113,5 +121,127 @@ export class Conversation extends JsonlFile {
         const conversation = new Conversation(source);
         await conversation.load();
         return conversation;
+    }
+
+    export(format: ExportFormat): string {
+        switch (format) {
+            case 'json':
+                return JSON.stringify(this.messages, null, 2);
+
+            case 'markdown':
+                return this.messages
+                    .filter((msg): msg is UserMessage | AssistantMessage =>
+                        msg.type === 'user' || msg.type === 'assistant'
+                    )
+                    .map((msg) => {
+                        const role = msg.type === 'user' ? '**User**' : '**Assistant**';
+                        const content = typeof msg.message.content === 'string'
+                            ? msg.message.content
+                            : msg.message.content
+                                .filter((block) => block.type === 'text')
+                                .map((block) => 'text' in block ? block.text : '')
+                                .join('\n');
+                        return `${role}\n\n${content}`;
+                    })
+                    .join('\n\n---\n\n');
+
+            case 'text':
+                return this.messages
+                    .filter((msg): msg is UserMessage | AssistantMessage =>
+                        msg.type === 'user' || msg.type === 'assistant'
+                    )
+                    .map((msg) => {
+                        const role = msg.type === 'user' ? 'User:' : 'Assistant:';
+                        const content = typeof msg.message.content === 'string'
+                            ? msg.message.content
+                            : msg.message.content
+                                .filter((block) => block.type === 'text')
+                                .map((block) => 'text' in block ? block.text : '')
+                                .join('\n');
+                        return `${role}\n${content}`;
+                    })
+                    .join('\n\n');
+
+            default:
+                throw new Error(`Unsupported export format: ${format}`);
+        }
+    }
+
+    search(pattern: string | RegExp): Message[] {
+        const regex = typeof pattern === 'string' ? new RegExp(pattern, 'i') : pattern;
+
+        return this.messages.filter((msg) => {
+            if (msg.type === 'file-history-snapshot') {
+                return false;
+            }
+
+            const content = msg.message.content;
+            if (typeof content === 'string') {
+                return regex.test(content);
+            }
+
+            return content.some((block) => {
+                if (block.type === 'text') {
+                    return regex.test(block.text);
+                }
+                return false;
+            });
+        });
+    }
+
+    filter(criteria: FilterCriteria): Message[] {
+        return this.messages.filter((msg) => {
+            if (criteria.type && msg.type !== criteria.type) {
+                return false;
+            }
+
+            if (msg.type === 'file-history-snapshot') {
+                const timestamp = new Date(msg.snapshot.timestamp);
+                if (criteria.startDate && timestamp < criteria.startDate) {
+                    return false;
+                }
+                if (criteria.endDate && timestamp > criteria.endDate) {
+                    return false;
+                }
+            } else {
+                const timestamp = new Date(msg.timestamp);
+                if (criteria.startDate && timestamp < criteria.startDate) {
+                    return false;
+                }
+                if (criteria.endDate && timestamp > criteria.endDate) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    async clear(): Promise<void> {
+        this.messages = [];
+        this._sessionId = null;
+        this._isSidechain = null;
+        this.byteOffset = 0;
+        await writeFile(this.source, '');
+    }
+
+    async deleteMessage(uuid: string): Promise<boolean> {
+        const index = this.messages.findIndex((msg) => {
+            if (msg.type === 'file-history-snapshot') {
+                return msg.messageId === uuid;
+            }
+            return msg.uuid === uuid;
+        });
+
+        if (index === -1) {
+            return false;
+        }
+
+        this.messages.splice(index, 1);
+        const content = this.messages.map((msg) => JSON.stringify(msg)).join('\n');
+        await writeFile(this.source, content ? content + '\n' : '');
+        this.byteOffset = Buffer.byteLength(content ? content + '\n' : '');
+
+        return true;
     }
 }
